@@ -1,6 +1,7 @@
-# Anomaly Reconstruction
+# Anomaly Reconstruction for Business Process Event Logs
 
 This repository shows an extended version of the Pattern-based Anomaly Reconstruction (PBAR) method [1].
+
 (We are preparing to submit a paper with this extended version to a journal.)
 
 ## Prepared Data1 - 5 artificial logs
