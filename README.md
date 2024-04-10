@@ -11,7 +11,7 @@ We used 5 types of process models including small, medium, large, huge, and wide
 We used two process models (credit-card & Pub) refered from [3] to generate artificial logs.
 
 ## Prepared Data3 - 4 real-life logs
-For the real life logs, we consider the Hospital Billing event log containing events about the billing of medical services that have been obtained from the financial modules of the ERP system of a regional hospital, and the Road Traffic event log which collects events about a road traffic fine management process at a local police authority in Italy.
+For the real life logs, we consider (1) the Hospital Billing event log containing events about the billing of medical services that have been obtained from the financial modules of the ERP system of a regional hospital, (2) the Road Traffic event log which collects events about a road traffic fine management process at a local police authority in Italy, and (3-4) BPIC 2012 and BPIC 2017 which are benchmard datasets in Process Mining academia.
 
 For all logs, we injected 5 types of anomaly patterns including "insert", "skip", "moved", "replace", and "rework" introduced in [4]. The statistics of datasets are summarised in Table 1 in our paper.
 
