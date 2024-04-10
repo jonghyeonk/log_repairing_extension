@@ -15,8 +15,6 @@ For the real life logs, we consider (1) the Hospital Billing event log containin
 
 For all logs, we injected 5 types of anomaly patterns including "insert", "skip", "moved", "replace", and "rework" introduced in [4]. The statistics of datasets are summarised in Table 1 in our paper.
 
-Before running the code, in the folders named as 'normaldata', 'anomaly_v2', 'encoded_normal' and 'encoded_anomaly', you need to put datasets downloadable in following repository:
-https://drive.google.com/file/d/11lWCY7f5yyyHADp78Ybf1H9IIxRjC0QF/view?usp=sharing
 
 ## R-files
 - PBAR/PBAR_effi.R : main function of PBAR
@@ -33,6 +31,8 @@ https://drive.google.com/file/d/11lWCY7f5yyyHADp78Ybf1H9IIxRjC0QF/view?usp=shari
   
 &#x1F53A; Be careful to correctly set your working directory in Rscripts.
 
+&#x1F53A; Before running the code, in the folders named as 'normaldata', 'anomaly_v2', 'encoded_normal' and 'encoded_anomaly', you need to put datasets downloadable in following repository:
+https://drive.google.com/file/d/11lWCY7f5yyyHADp78Ybf1H9IIxRjC0QF/view?usp=sharing
 
 ## References
 
