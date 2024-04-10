@@ -16,12 +16,18 @@ For all logs, we injected 5 types of anomaly patterns including "insert", "skip"
 
 
 ## R-files
-- util/vTree.R : function for training a reference model (directly followed graph)
-- util/vForest.R : function for calculating anomaly matrix and reconstructing anomalies
-- preprocesssing.R : data preprocessing before implementing anomaly reconstruction 
-- implementation.R : Implementation of vTree and vForest (= Pattern-based Anomaly Reconstruction)
-
-
+- PBAR/DiscoverNBG.R : function for fitting a reference model (normal behaviour graph)
+- PBAR/PBAR_effi.R : main function of PBAR
+- PBAR/algo_recon_effi.R : inner algorithms for reconstructing each anomaly pattern
+- PBAR/VotingMatrix.R : function of voting matrix
+- PBAR/0.preprocessing_for_sampleddata : to get normal data with different number of traces (represented in Fig.11)
+- PBAR/0.preprocessing_for_encoding : main preprecessing step
+- PBAR/1.implementation : to apply PBAR to the 11 total logs
+- PBAR/1.1.merge_result_alignment : to calculate the alignment result with same format of PBAR
+- PBAR/1.2.merge_result_deepalign : to calculate the deepalign result with same format of PBAR
+- PBAR/1.3.alpha_test_PBAR : to see results by changing the value of alpha parameter
+- PBAR/1.4.PBAR_with_PNUH : to apply PBAR to PNUH data (but, the PNUH data is not sharable)
+  
 &#x1F53A; Be careful to correctly set your working directory in Rscripts.
 
 
