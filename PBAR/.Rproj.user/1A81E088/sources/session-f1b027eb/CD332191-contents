@@ -1,0 +1,417 @@
+
+# local2= new.env()
+# attach(local2, name="local2")
+# source('VotingMatrix.R', local = local2)
+# sys.source('VotingMatrix.R', envir= local1)
+# print(ls())
+
+# print(environment())
+
+source('VotingMatrix.R')
+source('utils.R')
+source('algo_recon_effi.R')
+library(dplyr)
+library(foreach)
+
+
+PBAR = function(input, NBGs, dat, dat2, variant_frame, loopmax, method.repair){
+  if(length(unique(input$Case))==1){
+    preprocess = data.frame(Group.1 = unique(input$Case))
+    preprocess$Activity =NA
+    preprocess$Activity[1] = list(input$Activity)
+    preprocess$order =NA
+    preprocess$order[1] = list(input$order)
+  }else{
+    preprocess = aggregate(input, by= list(input$Case), FUN= function(x){x})
+  }
+  variant_frame_seq = aggregate(variant_frame$Activity, by= list(variant_frame$v_id), FUN= function(x){paste(x, collapse='>>')})
+  variant = cbind(preprocess, variant = factor(as.character(preprocess$Activity), labels =1:length(unique(preprocess$Activity))) )
+  preprocess_unique = preprocess[which(duplicated(variant$variant)==0 ), ]
+  variant_unique = variant[which(duplicated(variant$variant)==0 ), ]
+  
+  
+  ###
+  
+  apply_PBAR = function(x, NBGs, dat, dat2, variant_frame, variant_frame_seq, loopmax, method.repair){
+    x = data.frame(Case=rep(x$Group.1, length(x$Activity)), Activity = x$Activity, order= x$order  )
+    case1 = dat2[which(is.element(dat2$Case, x$Case[1])),]  # input case1
+    case1=case1[order(case1$level),]
+    actlist = c( as.character(case1[,3]),'End')
+    check_normal = sum(is.element(paste(actlist, collapse = ">>"), variant_frame_seq$x))
+    
+    actset = NBGs[[1]]
+    model.nodes = NBGs[[2]]
+    model.edges = NBGs[[3]]
+    base.list = NBGs[[4]]
+    visNBGs = NBGs[[5]] 
+    
+    res <- try({
+      if (check_normal >0) 
+        stop("error")
+    }, silent = TRUE)
+    
+    if (inherits(res, "try-error")) {
+      message("breaking loop: by input of normal trace")
+      return(  list( paste(actlist[2:(length(actlist)-1)], collapse = ">>"), "normal" , "normal") )
+      break
+    }
+    
+    source('VotingMatrix.R')
+    source('utils.R')
+    source('algo_recon_effi.R')
+    
+    vote = voting_matrix(case1, actset, model.nodes, model.edges, base.list)
+    e2 = which(apply(vote[[1]],2,sum)>1) 
+    
+    res <- try({
+      if (length(e2) ==0) 
+        stop("error")
+    }, silent = TRUE)
+    
+    if (inherits(res, "try-error")) {
+      message("breaking loop: by input of normal trace")
+      return(  list( paste(actlist[2:(length(actlist)-1)], collapse = ">>"), "normal" , "normal") )
+      break
+    }
+    
+    PBARs = list()
+    
+    # Update e2_set-----
+    e2_set = update_e2_set(e2)
+    # ------------------
+    repair_save = case1
+    repair = case1
+    predict_pattern = as.character()
+    predict_pattern_base = as.character()
+    repair_list = list()
+    deleted_seq = list()
+    inserted_seq = list()
+    deleted_loc = c()
+    inserted_loc = c()
+    j=1
+    k=1
+    loc_save = 10000
+    error_save = c()
+    j_max = loopmax+5
+    replace_change = 0  # for changing location to be delete in replaced pattern
+    replace_loc = 0
+    replace_td =1
+    skip_refuse = FALSE
+    Indirect_replace = FALSE
+    flag_rule6 = FALSE
+    flag_adjust = FALSE
+    flag_adjust_moved = FALSE
+    best_score = 1
+    best_j = 1
+    
+    predict= "anomaly"
+    best_result = list("-", "-", "-", "-")
+    # flag_skip_direct = TRUE
+    while(length(e2_set)!=0 ){
+      res <- try({
+        if (j > loopmax)
+          stop("error")
+      }, silent = TRUE)
+      
+      if (inherits(res, "try-error")) {
+        message("Maximum loop")
+        predict = predict_pattern
+        if(sum(is.na(predict))>0){
+          predict = predict[-which(is.na(predict))]
+        }
+        return( best_result  )
+        break
+      }
+      
+      
+      ## fill partial zero of anomalies with 1
+      e1 = which(apply(vote[[1]],1,sum)>1) 
+      e2 = which(apply(vote[[1]],2,sum)>1) 
+      if(length(e1) >0 & flag_adjust == FALSE){
+        environment(fill_partial) <- environment()
+        fill_partial(vote, e1, e2, error_save)
+      }
+      
+      # Update e2_set-----
+      e2_set = update_e2_set(e2)
+      # ------------------
+      
+      if(flag_rule6 ==TRUE){
+        e2_set= list()
+        for(e2_i in 1:length(e2)){
+          e2_set[[e2_i]] = e2[e2_i]
+        }
+        flag_rule6= FALSE
+      }
+      actlist = c( as.character(repair[,3]),'End')
+      num_place = length(e2)
+      
+      # Error separation for rework 
+      if(k==1){
+        place_rework= c()
+        e=1
+        for(err_i in 1:length(e2_set)){
+          err = e2_set[[err_i]]
+          err_sub = c()
+          for(d in (min(err)-1):max(err)){
+            if(sum(duplicated(actlist[ d:(d+1) ])) > 0){
+              place_rework = c(place_rework,e)
+              err_sub = unique(c(err_sub, d ))
+            }
+          }
+          if(length(err_sub)>0){
+            err = err_sub
+            e2_set[[err_i]] = err
+          }
+          e=e+1
+        }
+      }else{
+        place_rework= c()
+        if(length(e2_set)<k){
+          k= length(e2_set)
+        }
+      }
+      len_each = unlist(lapply(e2_set, length))
+      longerfirst = order(len_each, decreasing = T)
+      error = e2_set[[longerfirst[k]]]    
+      
+      if(length(loc_save)>0 & length(e2_set) >= loc_save) {  # deep survey
+        if( sum(is.element(e2_set[[loc_save]], error_save))>0  ){
+          error = e2_set[[loc_save]]
+          longerfirst[k] = loc_save
+        }
+      }
+      loc_save = longerfirst[k]
+      
+      
+      if( length(place_rework)>0 ){ # rework first
+        if(flag_adjust == TRUE & j==1){ # insert에 rework와 subsequence가 동시에 포함된 경우, rework 먼저 적용하고 sub다음에 적용되도록 함
+          flag_adjust = FALSE
+        }
+        PBARs[[j]] = recon_rework(repair, NBGs, actlist, place_rework, longerfirst, k , e2_set, actset, num_place)
+        predict_pattern[j] = PBARs[[j]]$predict_pattern
+        predict_pattern_base[j] = PBARs[[j]]$predict_pattern_base
+        k= PBARs[[j]]$k
+        actlist_repaired = PBARs[[j]]$actlist_repaired
+        vote= PBARs[[j]]$vote
+        repair = PBARs[[j]]$repair
+        
+      }else{
+        if(length(error) > 1){ # insert_A 
+          PBARs[[j]] = recon_insert_A(repair, NBGs, actlist, longerfirst, k, 
+                                      error, len_each, actset, num_place)
+          
+          predict_pattern[j] = PBARs[[j]]$predict_pattern
+          predict_pattern_base[j] = PBARs[[j]]$predict_pattern_base
+          k= PBARs[[j]]$k
+          actlist_repaired = PBARs[[j]]$actlist_repaired
+          vote= PBARs[[j]]$vote
+          repair = PBARs[[j]]$repair
+          deleted_seq[[j]] = PBARs[[j]]$deleted_seq
+          deleted_loc = c(deleted_loc , PBARs[[j]]$deleted_loc)
+          
+        }else{
+          sliding = sliding_skip(actlist, variant_frame, e2_set, error)
+          sliding_check = sliding$sliding_check
+          variant_frame2 = sliding$variant_frame2
+          
+          #####
+          if(nrow(sliding_check) > 0 ){ # skip
+            #####
+            PBARs[[j]] = recon_skip(sliding_check, NBGs, actlist, repair, variant_frame2,
+                                    j, k, error, actset, num_place, 
+                                    replace_change, flag_adjust_moved,
+                                    inserted_seq, inserted_loc, method.repair)
+            
+            skip_refuse = PBARs[[j]]$skip_refuse
+            
+            if(skip_refuse == FALSE){
+              predict_pattern[j] = PBARs[[j]]$predict_pattern
+              predict_pattern_base[j] = PBARs[[j]]$predict_pattern_base
+              k= PBARs[[j]]$k
+              vote= PBARs[[j]]$vote
+              repair = PBARs[[j]]$repair
+              actlist_repaired=  PBARs[[j]]$actlist_repaired
+              inserted_seq = PBARs[[j]]$inserted_seq
+              inserted_loc = PBARs[[j]]$inserted_loc
+              
+              if(predict_pattern[j] == 'skip'){  # skip >> can be changed to moved, replace
+                environment(recon_moved_replace) <- environment()
+                recon_moved_replace(inserted_seq, inserted_loc, 
+                                    deleted_seq, deleted_loc,j, PBARs)
+              }
+            }
+          }
+          
+          if(nrow(sliding_check) ==  0 | skip_refuse == TRUE){ # insert_B
+            
+            PBARs[[j]] = recon_insert_B(repair,NBGs, actlist, longerfirst, j, k, 
+                                        error, len_each, actset, num_place, replace_change,
+                                        Indirect_replace, replace_loc)
+            predict_pattern[j] = PBARs[[j]]$predict_pattern
+            predict_pattern_base[j] = PBARs[[j]]$predict_pattern_base
+            k= PBARs[[j]]$k
+            actlist_repaired = PBARs[[j]]$actlist_repaired
+            vote= PBARs[[j]]$vote
+            repair = PBARs[[j]]$repair
+            deleted_seq[[j]] = PBARs[[j]]$deleted_seq
+            deleted_loc =  c(deleted_loc , PBARs[[j]]$deleted_loc)
+            replace_change = PBARs[[j]]$replace_change
+            Indirect_replace = PBARs[[j]]$Indirect_replace
+          }
+          
+        }
+      }
+      
+      res <- try({
+        if (j == j_max) 
+          stop("error")
+      }, silent = TRUE)
+      
+      if (inherits(res, "try-error")) {
+        message("Rational stop")
+        predict = predict_pattern
+        if(sum(is.na(predict))>0){
+          predict = predict[-which(is.na(predict))]
+        }
+        return(  list( paste(actlist_repaired[2:(length(actlist_repaired)-1)], collapse = ">>"), predict , predict_pattern_base) )
+        break
+      }
+      
+      
+      # Update variables --- To go deep
+      error_save = error
+      
+      e2 = which(apply(vote[[1]],2,sum)>1)
+      e2_set = update_e2_set(e2)
+      if(length(e2) == 0){
+        Indirect_replace= FALSE
+        replace_change = 0
+      }
+      
+      score = length(e2)/ncol(vote[[1]])
+      if(score < best_score & ncol(vote[[1]]) >2 &
+         sum( is.element(c('Start', 'End'), actlist_repaired)) ==2){
+        best_score = score
+        best_j = j
+        best_result = list( paste(actlist_repaired[2:(length(actlist_repaired)-1)], collapse = ">>"), predict , predict_pattern_base, PBARs) 
+        
+      }
+      j = j+1
+      # --------------------
+      
+      # Stop to go deep --- initialize & restart with different location
+      if(length(actlist_repaired)< 3 | 
+         sum( is.element(c('Start', 'End'), actlist_repaired)) !=2 |
+         replace_change > replace_td | 
+         Indirect_replace == TRUE){
+        
+        
+        vote = voting_matrix(case1, actset, model.nodes, model.edges, base.list)
+        actlist = c( as.character(case1[,3]),'End')
+        
+        e1 = which(apply(vote[[1]],1,sum)>1) 
+        e2 = which(apply(vote[[1]],2,sum)>1) 
+        
+        if(length(e1) >0){
+          e1_diff1 = which(diff(e1) != 1)
+          e1_in = list()
+          if(length(e1_diff1)== 0 ){
+            e1_in[[1]] = e1
+          }else{
+            e1_diff2 = unique(c(1, e1_diff1, length(e1) ))
+            for(i in 1:(length(e1_diff2)-1)){
+              e1_in[[i]] = e1[e1_diff2[i]:e1_diff2[i+1] ]
+            }
+          }
+          
+          for(i in 1:length(e1_in)){
+            vote_adj = vote[[1]]
+            e1_temp = e1_in[[i]]
+            # e1_col = (min(e1_temp)):(max(e1_temp)-1)
+            if( (max(e1_temp) - min(e1_temp)) < 3 & 
+                sum(vote_adj[c(min(e1_temp)-1 ,e1_temp, max(e1_temp)+1 ) , (min(e1_temp)):(max(e1_temp)-1) ]) == 0 ){  # to prevent to crash with deep survey
+              vote_adj[e1_temp , (min(e1_temp)):(max(e1_temp)-1) ] =1
+              e2 = which(apply(vote_adj,2,sum)>1) 
+            }
+          }
+        }
+        
+        # Update e2_set-----
+        e2_set = update_e2_set(e2)
+        # ------------------
+        
+        repair_save = case1
+        repair = case1
+        predict_pattern = as.character()
+        predict_pattern_base = as.character()
+        repair_list = list()
+        deleted_seq = list()
+        inserted_seq = list()
+        deleted_loc = c()
+        inserted_loc = c()
+        loopmax = loopmax -j
+        j=1
+        k=1
+        
+        loc_save = 10000
+        error_save = c()
+        skip_refuse = FALSE
+        
+        if(replace_loc ==1){ # replace_loc 번경 후에도 실패했을 경우> 초기화
+          Indirect_replace = FALSE
+          replace_change = 0
+          flag_adjust_moved = FALSE
+          flag_adjust =TRUE
+        }
+        
+        if(length(e2_set)>1 & flag_adjust == FALSE){ # general: change the starting point of reconstruction
+          k= k+1
+        }else if(replace_change> replace_td | Indirect_replace ==TRUE ){ # for changing deletion location in replace pattern
+          replace_loc = 1
+          replace_change=0
+          replace_td = 1
+        }else if(length(e2_set[[1]])==2 & length(e2_set) ==1){ # at close distance of doubled skip patterns  
+          flag_rule6 = TRUE
+        }else if(loopmax < 1){ # rational stop
+          j_max = best_j 
+        }
+        
+        if(flag_adjust == TRUE & Indirect_replace ==TRUE){
+          flag_adjust = FALSE
+        }
+        Indirect_replace =  FALSE
+      }
+      
+    }
+    
+    predict = predict_pattern
+    if(sum(is.na(predict))>0){
+      predict = predict[-which(is.na(predict))]
+    }
+    
+    
+    return(  list( paste(actlist_repaired[2:(length(actlist_repaired)-1)], collapse = ">>"), predict , predict_pattern_base, PBARs) )
+  }
+  
+  
+  ###
+  
+  indexs = 1:nrow(preprocess_unique)
+  reconst_result = foreach(i=indexs) %dopar% apply_PBAR(preprocess_unique[i,], 
+                                                        NBGs,
+                                                        dat, dat2, variant_frame, 
+                                                        variant_frame_seq, 
+                                                        loopmax,  method.repair) 
+  # reconst_result = lapply(preprocess_unique,FUN= function(x){
+  #   apply_PBAR(x, dat, dat2, variant_frame, variant_frame_seq, loopmax,  method.repair)})
+  
+  variant_unique$result = reconst_result
+  
+  variant_db = merge(variant[, c("Group.1", "variant")], variant_unique[, c("Group.1", "variant", "result")], by= c("variant"), all.x= 1)
+  reconst_final = variant_db[match(variant$Group.1 , variant_db$Group.1.x), ]
+  return(reconst_final)
+}
+
+
+

@@ -1,0 +1,504 @@
+#For PM4PY
+import os
+import tensorflow as tf
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+if tf.test.gpu_device_name():
+    print('GPU found')
+else:
+    print("No GPU found")
+
+import pm4py
+from pm4py.objects.conversion.log import converter as log_converter
+from pm4py.algo.discovery.inductive import algorithm as inductive_miner
+from pm4py.algo.conformance.alignments.petri_net import algorithm
+import pandas as pd
+import numpy
+import datetime
+
+
+from pm4py.algo.conformance.alignments.edit_distance import algorithm as logs_alignments
+
+
+
+
+
+## clean_hospital_billing
+#
+before = pd.read_csv("~\\PycharmProjects\\alignment\\normaldata\\clean_hospital_billing.csv")
+after = pd.read_csv("~\\PycharmProjects\\alignment\\preprocessed\\recon_clean_hospital_billing1.csv")
+
+before = before[['case_id', 'activity', "timestamp"]]
+before = before.rename(columns={"case_id": "case:concept:name", "activity": "concept:name",
+                       "timestamp": "time:timestamp"})
+
+### b12, b17
+# before = before[['Case ID', 'Activity', "Complete Timestamp"]]
+# before = before.rename(columns={"Case ID": "case:concept:name", "Activity": "concept:name",
+#                       "Complete Timestamp": "time:timestamp"})
+
+### clean_b12, clean_b17
+# before = before[['Case.ID', 'Activity', "Complete.Timestamp"]]
+# before = before.rename(columns={"Case.ID": "case:concept:name", "Activity": "concept:name",
+#                        "Complete.Timestamp": "time:timestamp"})
+
+after = after[['Case', 'Activity', "Timestamp", "resource_anomaly_type"]]
+after = after.rename(columns={"Case": "case:concept:name", "Activity": "concept:name",
+                       "Timestamp": "time:timestamp", "resource_anomaly_type": "label"})
+
+clean = after[after.label.isin(['normal']) ]
+anomaly = after[~after.label.isin(['normal']) ]
+clean = clean.reset_index(drop=True)
+anomaly = anomaly.reset_index(drop=True)
+
+clean = clean[["case:concept:name", "concept:name","time:timestamp" ]]
+anomaly = anomaly[["case:concept:name", "concept:name","time:timestamp" ]]
+
+correct_align = before[before["case:concept:name"].isin( anomaly["case:concept:name"].unique()) ]
+correct_align = correct_align[["case:concept:name", "concept:name","time:timestamp" ]]
+
+anomalyid = anomaly["case:concept:name"].unique()
+##
+#print(len(anomalyid))
+
+log = log_converter.apply(clean)
+log2 = log_converter.apply(anomaly)
+#print('start_processdiscovery')
+start= datetime.datetime.now()
+parameters = {}
+alignments = logs_alignments.apply(log2, log, parameters=parameters)
+#
+end= datetime.datetime.now()
+#print('finished')
+cost = list()
+cost.append(int((end-start).total_seconds())/60)
+
+
+cases = anomaly['case:concept:name'].unique()
+length = len(cases)
+w=0
+ww=0
+case_l = list()
+case2_l = list()
+act3_l = list()
+score=0
+for i in alignments:
+    if i is None:
+        ww= ww+1
+
+
+    else:
+        act_l = list()
+        act2_l = list()
+        org = correct_align[correct_align["case:concept:name"].isin([anomalyid[w]])]
+        act_org = org["concept:name"].values.tolist()
+        caseid = anomalyid[w]
+        for k in i['alignment']:
+            if (k[1] != None) and (k[1] != '>>'):
+                act2_l.append(k[1])
+                case2_l.append(caseid)
+                act3_l.append(k[1])
+            if k[0] != '>>':
+                act_l.append(k[0])
+                case_l.append(caseid)
+        w = w + 1
+        if act_org != act2_l:
+            score = score + 1
+
+
+d = {'Case':case2_l,'Activity':act3_l}
+df = pd.DataFrame(d)
+
+
+print(1-score/(length-ww))
+
+
+df.to_csv("clean_hospital_billing1_align.csv")
+
+
+
+
+
+##
+before = pd.read_csv("~\\PycharmProjects\\alignment\\normaldata\\clean_hospital_billing.csv")
+after = pd.read_csv("~\\PycharmProjects\\alignment\\preprocessed\\recon_clean_hospital_billing2.csv")
+
+### clean_hospital_billing
+before = before[['case_id', 'activity', "timestamp"]]
+before = before.rename(columns={"case_id": "case:concept:name", "activity": "concept:name",
+                       "timestamp": "time:timestamp"})
+
+### b12, b17
+# before = before[['Case ID', 'Activity', "Complete Timestamp"]]
+# before = before.rename(columns={"Case ID": "case:concept:name", "Activity": "concept:name",
+#                       "Complete Timestamp": "time:timestamp"})
+
+### clean_b12, clean_b17
+# before = before[['Case.ID', 'Activity', "Complete.Timestamp"]]
+# before = before.rename(columns={"Case.ID": "case:concept:name", "Activity": "concept:name",
+#                        "Complete.Timestamp": "time:timestamp"})
+
+after = after[['Case', 'Activity', "Timestamp", "resource_anomaly_type"]]
+after = after.rename(columns={"Case": "case:concept:name", "Activity": "concept:name",
+                       "Timestamp": "time:timestamp", "resource_anomaly_type": "label"})
+
+clean = after[after.label.isin(['normal']) ]
+anomaly = after[~after.label.isin(['normal']) ]
+clean = clean.reset_index(drop=True)
+anomaly = anomaly.reset_index(drop=True)
+
+clean = clean[["case:concept:name", "concept:name","time:timestamp" ]]
+anomaly = anomaly[["case:concept:name", "concept:name","time:timestamp" ]]
+
+correct_align = before[before["case:concept:name"].isin( anomaly["case:concept:name"].unique()) ]
+correct_align = correct_align[["case:concept:name", "concept:name","time:timestamp" ]]
+
+anomalyid = anomaly["case:concept:name"].unique()
+##
+#print(len(anomalyid))
+
+log = log_converter.apply(clean)
+log2 = log_converter.apply(anomaly)
+#print('start_processdiscovery')
+start= datetime.datetime.now()
+parameters = {}
+alignments = logs_alignments.apply(log2, log, parameters=parameters)
+#alignments = algorithm.apply_log(log2, net, initial_marking, final_marking, parameters=  {algorithm.Parameters.PARAM_MAX_ALIGN_TIME_TRACE: 300} )
+
+#
+end= datetime.datetime.now()
+#print('finished')
+cost.append(int((end-start).total_seconds())/60)
+
+
+cases = anomaly['case:concept:name'].unique()
+length = len(cases)
+w=0
+ww=0
+case_l = list()
+case2_l = list()
+act3_l = list()
+score=0
+for i in alignments:
+    if i is None:
+        ww= ww+1
+
+
+    else:
+        act_l = list()
+        act2_l = list()
+        org = correct_align[correct_align["case:concept:name"].isin([anomalyid[w]])]
+        act_org = org["concept:name"].values.tolist()
+        caseid = anomalyid[w]
+        for k in i['alignment']:
+            if (k[1] != None) and (k[1] != '>>'):
+                act2_l.append(k[1])
+                case2_l.append(caseid)
+                act3_l.append(k[1])
+            if k[0] != '>>':
+                act_l.append(k[0])
+                case_l.append(caseid)
+        w = w + 1
+        if act_org != act2_l:
+            score = score + 1
+
+
+d = {'Case':case2_l,'Activity':act3_l}
+df = pd.DataFrame(d)
+
+
+print(1-score/(length-ww))
+
+
+df.to_csv("clean_hospital_billing2_align.csv")
+
+
+
+
+
+
+
+##
+before = pd.read_csv("~\\PycharmProjects\\alignment\\normaldata\\clean_hospital_billing.csv")
+after = pd.read_csv("~\\PycharmProjects\\alignment\\preprocessed\\recon_clean_hospital_billing3.csv")
+
+### clean_hospital_billing
+before = before[['case_id', 'activity', "timestamp"]]
+before = before.rename(columns={"case_id": "case:concept:name", "activity": "concept:name",
+                       "timestamp": "time:timestamp"})
+
+### b12, b17
+# before = before[['Case ID', 'Activity', "Complete Timestamp"]]
+# before = before.rename(columns={"Case ID": "case:concept:name", "Activity": "concept:name",
+#                       "Complete Timestamp": "time:timestamp"})
+
+### clean_b12, clean_b17
+# before = before[['Case.ID', 'Activity', "Complete.Timestamp"]]
+# before = before.rename(columns={"Case.ID": "case:concept:name", "Activity": "concept:name",
+#                        "Complete.Timestamp": "time:timestamp"})
+
+after = after[['Case', 'Activity', "Timestamp", "resource_anomaly_type"]]
+after = after.rename(columns={"Case": "case:concept:name", "Activity": "concept:name",
+                       "Timestamp": "time:timestamp", "resource_anomaly_type": "label"})
+
+clean = after[after.label.isin(['normal']) ]
+anomaly = after[~after.label.isin(['normal']) ]
+clean = clean.reset_index(drop=True)
+anomaly = anomaly.reset_index(drop=True)
+
+clean = clean[["case:concept:name", "concept:name","time:timestamp" ]]
+anomaly = anomaly[["case:concept:name", "concept:name","time:timestamp" ]]
+
+correct_align = before[before["case:concept:name"].isin( anomaly["case:concept:name"].unique()) ]
+correct_align = correct_align[["case:concept:name", "concept:name","time:timestamp" ]]
+
+anomalyid = anomaly["case:concept:name"].unique()
+##
+#print(len(anomalyid))
+
+log = log_converter.apply(clean)
+log2 = log_converter.apply(anomaly)
+#print('start_processdiscovery')
+start= datetime.datetime.now()
+parameters = {}
+alignments = logs_alignments.apply(log2, log, parameters=parameters)
+#
+end= datetime.datetime.now()
+#print('finished')
+cost.append(int((end-start).total_seconds())/60)
+
+
+cases = anomaly['case:concept:name'].unique()
+length = len(cases)
+w=0
+ww=0
+case_l = list()
+case2_l = list()
+act3_l = list()
+score=0
+for i in alignments:
+    if i is None:
+        ww= ww+1
+
+
+    else:
+        act_l = list()
+        act2_l = list()
+        org = correct_align[correct_align["case:concept:name"].isin([anomalyid[w]])]
+        act_org = org["concept:name"].values.tolist()
+        caseid = anomalyid[w]
+        for k in i['alignment']:
+            if (k[1] != None) and (k[1] != '>>'):
+                act2_l.append(k[1])
+                case2_l.append(caseid)
+                act3_l.append(k[1])
+            if k[0] != '>>':
+                act_l.append(k[0])
+                case_l.append(caseid)
+        w = w + 1
+        if act_org != act2_l:
+            score = score + 1
+
+
+d = {'Case':case2_l,'Activity':act3_l}
+df = pd.DataFrame(d)
+
+
+print(1-score/(length-ww))
+
+
+df.to_csv("clean_hospital_billing3_align.csv")
+
+
+
+
+##
+before = pd.read_csv("~\\PycharmProjects\\alignment\\normaldata\\clean_hospital_billing.csv")
+after = pd.read_csv("~\\PycharmProjects\\alignment\\preprocessed\\recon_clean_hospital_billing4.csv")
+
+### clean_hospital_billing
+before = before[['case_id', 'activity', "timestamp"]]
+before = before.rename(columns={"case_id": "case:concept:name", "activity": "concept:name",
+                       "timestamp": "time:timestamp"})
+
+### b12, b17
+# before = before[['Case ID', 'Activity', "Complete Timestamp"]]
+# before = before.rename(columns={"Case ID": "case:concept:name", "Activity": "concept:name",
+#                       "Complete Timestamp": "time:timestamp"})
+
+### clean_b12, clean_b17
+# before = before[['Case.ID', 'Activity', "Complete.Timestamp"]]
+# before = before.rename(columns={"Case.ID": "case:concept:name", "Activity": "concept:name",
+#                        "Complete.Timestamp": "time:timestamp"})
+
+after = after[['Case', 'Activity', "Timestamp", "resource_anomaly_type"]]
+after = after.rename(columns={"Case": "case:concept:name", "Activity": "concept:name",
+                       "Timestamp": "time:timestamp", "resource_anomaly_type": "label"})
+
+clean = after[after.label.isin(['normal']) ]
+anomaly = after[~after.label.isin(['normal']) ]
+clean = clean.reset_index(drop=True)
+anomaly = anomaly.reset_index(drop=True)
+
+clean = clean[["case:concept:name", "concept:name","time:timestamp" ]]
+anomaly = anomaly[["case:concept:name", "concept:name","time:timestamp" ]]
+
+correct_align = before[before["case:concept:name"].isin( anomaly["case:concept:name"].unique()) ]
+correct_align = correct_align[["case:concept:name", "concept:name","time:timestamp" ]]
+
+anomalyid = anomaly["case:concept:name"].unique()
+##
+#print(len(anomalyid))
+
+log = log_converter.apply(clean)
+log2 = log_converter.apply(anomaly)
+#print('start_processdiscovery')
+start= datetime.datetime.now()
+parameters = {}
+alignments = logs_alignments.apply(log2, log, parameters=parameters)
+#alignments = algorithm.apply_log(log2, net, initial_marking, final_marking, parameters=  {algorithm.Parameters.PARAM_MAX_ALIGN_TIME_TRACE: 300} )
+
+#
+end= datetime.datetime.now()
+#print('finished')
+cost.append(int((end-start).total_seconds())/60)
+
+
+cases = anomaly['case:concept:name'].unique()
+length = len(cases)
+w=0
+ww=0
+case_l = list()
+case2_l = list()
+act3_l = list()
+score=0
+for i in alignments:
+    if i is None:
+        ww= ww+1
+
+
+    else:
+        act_l = list()
+        act2_l = list()
+        org = correct_align[correct_align["case:concept:name"].isin([anomalyid[w]])]
+        act_org = org["concept:name"].values.tolist()
+        caseid = anomalyid[w]
+        for k in i['alignment']:
+            if (k[1] != None) and (k[1] != '>>'):
+                act2_l.append(k[1])
+                case2_l.append(caseid)
+                act3_l.append(k[1])
+            if k[0] != '>>':
+                act_l.append(k[0])
+                case_l.append(caseid)
+        w = w + 1
+        if act_org != act2_l:
+            score = score + 1
+
+
+d = {'Case':case2_l,'Activity':act3_l}
+df = pd.DataFrame(d)
+
+
+print(1-score/(length-ww))
+
+
+df.to_csv("clean_hospital_billing4_align.csv")
+
+
+
+
+
+##
+before = pd.read_csv("~\\PycharmProjects\\alignment\\normaldata\\clean_hospital_billing.csv")
+after = pd.read_csv("~\\PycharmProjects\\alignment\\preprocessed\\recon_clean_hospital_billing5.csv")
+
+### clean_hospital_billing
+before = before[['case_id', 'activity', "timestamp"]]
+before = before.rename(columns={"case_id": "case:concept:name", "activity": "concept:name",
+                       "timestamp": "time:timestamp"})
+
+### b12, b17
+# before = before[['Case ID', 'Activity', "Complete Timestamp"]]
+# before = before.rename(columns={"Case ID": "case:concept:name", "Activity": "concept:name",
+#                       "Complete Timestamp": "time:timestamp"})
+
+### clean_b12, clean_b17
+# before = before[['Case.ID', 'Activity', "Complete.Timestamp"]]
+# before = before.rename(columns={"Case.ID": "case:concept:name", "Activity": "concept:name",
+#                        "Complete.Timestamp": "time:timestamp"})
+
+after = after[['Case', 'Activity', "Timestamp", "resource_anomaly_type"]]
+after = after.rename(columns={"Case": "case:concept:name", "Activity": "concept:name",
+                       "Timestamp": "time:timestamp", "resource_anomaly_type": "label"})
+
+clean = after[after.label.isin(['normal']) ]
+anomaly = after[~after.label.isin(['normal']) ]
+clean = clean.reset_index(drop=True)
+anomaly = anomaly.reset_index(drop=True)
+
+clean = clean[["case:concept:name", "concept:name","time:timestamp" ]]
+anomaly = anomaly[["case:concept:name", "concept:name","time:timestamp" ]]
+
+correct_align = before[before["case:concept:name"].isin( anomaly["case:concept:name"].unique()) ]
+correct_align = correct_align[["case:concept:name", "concept:name","time:timestamp" ]]
+
+anomalyid = anomaly["case:concept:name"].unique()
+##
+#print(len(anomalyid))
+
+log = log_converter.apply(clean)
+log2 = log_converter.apply(anomaly)
+#print('start_processdiscovery')
+start= datetime.datetime.now()
+parameters = {}
+alignments = logs_alignments.apply(log2, log, parameters=parameters)
+#
+end= datetime.datetime.now()
+#print('finished')
+cost.append(int((end-start).total_seconds())/60)
+
+
+cases = anomaly['case:concept:name'].unique()
+length = len(cases)
+w=0
+ww=0
+case_l = list()
+case2_l = list()
+act3_l = list()
+score=0
+for i in alignments:
+    if i is None:
+        ww= ww+1
+
+
+    else:
+        act_l = list()
+        act2_l = list()
+        org = correct_align[correct_align["case:concept:name"].isin([anomalyid[w]])]
+        act_org = org["concept:name"].values.tolist()
+        caseid = anomalyid[w]
+        for k in i['alignment']:
+            if (k[1] != None) and (k[1] != '>>'):
+                act2_l.append(k[1])
+                case2_l.append(caseid)
+                act3_l.append(k[1])
+            if k[0] != '>>':
+                act_l.append(k[0])
+                case_l.append(caseid)
+        w = w + 1
+        if act_org != act2_l:
+            score = score + 1
+
+
+d = {'Case':case2_l,'Activity':act3_l}
+df = pd.DataFrame(d)
+
+
+
+print(sum(cost)/len(cost))
+
+df.to_csv("clean_hospital_billing5_align.csv")
+
+
+
+

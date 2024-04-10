@@ -1,0 +1,29 @@
+
+
+dat = read.csv("weightPTA.csv", T)
+head(dat)
+dat$k = 100*dat$k
+dat$k = as.factor(dat$k)
+dat
+library(ggplot2)
+
+head(dat)
+
+names(dat) = c("Method" , 'k' , 'Precision')
+
+
+
+ggplot(dat, aes(fill= Method, x = k, y= Precision)) +
+  geom_bar(position = "dodge" ,stat="identity", width=0.7)+
+  scale_fill_manual(values=c("#ffac8a",  "#00b3b8")    )+scale_alpha_manual(values = c(0.6, 1))+
+  geom_text(aes(label=Precision), size=7,  position=position_dodge(width=0.9), vjust=-0.25)+
+  coord_cartesian(ylim = c(0,1))+
+  xlab('k (%)') +
+  theme(axis.text=element_text(size=22),
+       axis.title=element_text(size=24)) + theme(legend.title = element_text(size = 18), 
+                                                 legend.text = element_text(size = 18))+
+  theme(legend.position = c(0.25, 0.9))
+
+
+
+plot(p)

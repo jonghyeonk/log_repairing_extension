@@ -1,0 +1,47 @@
+library(ggplot2)
+
+setwd("C:/Users/UNIST/Desktop/연구/Conformance Checking/R_code/log_repairing")
+
+dat= read.csv("Plotdata.csv",T)
+dat$Data= as.factor(dat$Data)
+dat$Pattern = as.factor(dat$Pattern)
+
+dat_save= dat
+
+dat1 = dat[,c(1:3)]
+dat2 = dat[,c(1:2,4)]
+dat3 = dat[,c(1:2,5)]
+
+dat1$Method = "vForest"
+dat2$Method = "Alignment"
+dat3$Method = "DeepAlign"
+
+names(dat1)[3]= 'values'
+names(dat2)[3]= 'values'
+names(dat3)[3]= 'values'
+
+dat= rbind(dat1, dat2, dat3)
+
+dat$Method = as.factor(dat$Method)
+#################################
+library(fGarch)
+library(hrbrthemes)
+library(RColorBrewer)
+
+my_col = brewer.pal(n = 9, "BuPu")[c(8,4,6)]
+
+dat$Method = factor(dat$Method,levels = c("vForest", "Alignment", "DeepAlign"))
+
+dat_see = dat[which(dat$Data=="Artificial logs"),-1]
+
+p=ggplot(dat) +
+  geom_bar(aes(fill =Method ,x = Pattern, y= values), position = "dodge" ,stat="identity", width=0.6)+
+  scale_x_discrete(limits=c("Skip","Insert", "Rework","Replace", "Moved" ))+
+  scale_fill_manual(values=my_col)+
+  facet_wrap(~ Data) +
+  coord_cartesian(ylim = c(0,1))+
+  theme_bw()
+  
+
+plot(p)
+dev.off()

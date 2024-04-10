@@ -1,0 +1,150 @@
+install.packages("C50")
+
+
+
+library(C50)
+
+
+
+setwd("~/explainablePM/data") #Change
+
+fd<-list.files(getwd()) #file directory
+
+result0 =as.numeric()
+result1 =as.numeric() 
+result0_PR =as.numeric()
+result1_PR =as.numeric() 
+for(i in 1:length(fd)){
+  setwd(paste("~/explainablePM/data/",fd[i],sep=''))
+  fn<-list.files(getwd())
+  
+  for(j in 1:2){  # i==1: non PR data, i==2: PR data
+    if(j==1){
+      print(paste("@@@ Prefix length= ", fd[i], ", Input data= non PR data @@@", sep=''))
+    }else{
+      print(paste("@@@ Prefix length= ", fd[i], ", Input data= PR data @@@", sep=''))
+    }
+
+    data_PR = read.csv(fn[j], T)
+    
+    set.seed(1004) # for reprodicibility
+    train_idx <- sample(1:nrow(data_PR), size=0.7*nrow(data_PR), replace=F) # train-set 0.8, test-set 0.2
+    test_idx <- (-train_idx)
+    
+    train <- data_PR[train_idx,]
+    test <- data_PR[test_idx,]
+  
+    
+    #For predicting Label_0
+    tree_mod0 <- C5.0(x = train[, 1:(ncol(train)-2)], y = as.factor(train$Label_0),
+                      control = C5.0Control(
+                        subset = TRUE,
+                        bands = 0,
+                        winnow = FALSE,
+                        noGlobalPruning = FALSE,
+                        CF = 0.25,
+                        minCases = 2,
+                        fuzzyThreshold = FALSE,
+                        sample = 0,
+                        seed = sample.int(4096, size = 1) - 1L,
+                        earlyStopping = TRUE,
+                        label = "outcome"
+                      ))
+    summary(tree_mod0)
+    plot(tree_mod0)
+    pred0 = predict(tree_mod0, newdata = test[, 1:(ncol(train)-2)])
+    acc0 = mean(test$Label_0 == pred0)
+    print(acc0)
+    
+    rule_mod0 <- C5.0(x = train[, 1:(ncol(train)-2)], y = as.factor(train$Label_0), rules = TRUE,
+                      control = C5.0Control(
+                        subset = TRUE,
+                        bands = 0,
+                        winnow = FALSE,
+                        noGlobalPruning = FALSE,
+                        CF = 0.25,
+                        minCases = 2,
+                        fuzzyThreshold = FALSE,
+                        sample = 0,
+                        seed = sample.int(4096, size = 1) - 1L,
+                        earlyStopping = TRUE,
+                        label = "outcome"
+                      ))
+    print(summary(rule_mod0))
+    sm = summary(rule_mod0)
+    
+    
+    #For predicting Label_1
+    tree_mod1 <- C5.0(x = train[, 1:(ncol(train)-2)], y = as.factor(train$Label_1),
+                      control = C5.0Control(
+                        subset = TRUE,
+                        bands = 0,
+                        winnow = FALSE,
+                        noGlobalPruning = FALSE,
+                        CF = 0.25,
+                        minCases = 2,
+                        fuzzyThreshold = FALSE,
+                        sample = 0,
+                        seed = sample.int(4096, size = 1) - 1L,
+                        earlyStopping = TRUE,
+                        label = "outcome"
+                      ))
+    summary(tree_mod1)
+    plot(tree_mod1)
+    pred1 = predict(tree_mod1, newdata = test[, 1:(ncol(train)-2)])
+    acc1 = mean(test$Label_1 == pred1)
+    print(acc1)
+    
+    rule_mod1 <- C5.0(x = train[, 1:(ncol(train)-2)], y = as.factor(train$Label_1), rules = TRUE,
+                      control = C5.0Control(
+                        subset = TRUE,
+                        bands = 0,
+                        winnow = FALSE,
+                        noGlobalPruning = FALSE,
+                        CF = 0.25,
+                        minCases = 2,
+                        fuzzyThreshold = FALSE,
+                        sample = 0,
+                        seed = sample.int(4096, size = 1) - 1L,
+                        earlyStopping = TRUE,
+                        label = "outcome"
+                      ))
+    print(summary(rule_mod1))
+    sm = summary(rule_mod1)
+    
+    if(j==1){
+      result0[i] = acc0
+      result1[i] = acc1
+    }else{
+      result0_PR[i] = acc0
+      result1_PR[i] = acc1
+    }
+  }
+}
+
+result.frame_non_PR = data.frame(fd, object= rep("non-PR", length(fd)), result0, result1 )
+result.frame_PR = data.frame(fd, object= rep("PR", length(fd)), result0_PR, result1_PR )
+
+names(result.frame_non_PR) = c('prefix', 'object', 'Accuracy_Label0', 'Accuracy_Label1')
+names(result.frame_PR) = c('prefix', 'object', 'Accuracy_Label0', 'Accuracy_Label1')
+
+result.frame = rbind(result.frame_non_PR, result.frame_PR  )
+
+result.frame
+setwd("~/explainablePM") #Change
+write.csv(result.frame , "result.csv", row.names = F)
+
+
+
+#############
+
+
+install.packages('iml')
+
+library(iml)
+
+mod <- Predictor$new(tree_mod0, data =train[, 1:(ncol(train)-2)])
+shapley <- Shapley$new(mod, x.interest = train[, 1:(ncol(train)-2)])
+shapley
+
+

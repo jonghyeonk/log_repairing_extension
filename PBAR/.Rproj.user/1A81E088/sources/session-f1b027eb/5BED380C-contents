@@ -1,0 +1,176 @@
+
+{
+setwd("C:/Users/UNIST/Desktop/????/Conformance Checking/R_code/log_repairing/result_p50")
+fn = list.files(getwd())  
+
+total= as.numeric()
+for(i in 1:length(fn)){
+  dat= read.csv(fn[i], T)
+  dat = round(apply(dat,2, mean), digits=3)
+  dat = c(fn[i], dat)
+  total = rbind(total, dat)
+}
+print(total)
+write.csv(data.frame(cbind(rownames(data.frame(t(total[ c(8,6,5,4,9,3,7,1,2),]))),  t(total[ c(8,6,5,4,9,3,7,1,2),])))
+          , "result_total2.csv", row.names = F)
+}
+
+
+data.frame(cbind(rownames(data.frame(t(total[ c(8,6,5,4,9,3,7,1,2),]))),  t(total[ c(8,6,5,4,9,3,7,1,2),])))
+
+
+{
+test =  read.csv("hospital_billing.csv",T)
+head(test)
+names(test)[2:3] = c('Case.ID', 'Activity') #for hospital_billing data
+# names(test)[1:2] = c('Case.ID', 'Activity') #for Road_Traffic.csv data , B12
+
+setwd("C:/Users/UNIST/Desktop/??????/Conformance Checking/R_code/log_repairing/preprocessed")
+dat = read.csv("recon_hospital_billing.csv",T)
+
+
+####
+setwd("C:/Users/UNIST/Desktop/??????/Conformance Checking/R_code/log_repairing/alignment")
+align= read.csv("hospital_billing_align.csv",T)
+
+# setwd("C:/Users/UNIST/PycharmProjects/DeepAign/result")
+# align= read.csv("RoadTraffic2_DeepAlign.csv",T)
+
+####
+
+anomaly= unique(dat[,c(1,4)])
+anomaly= anomaly[which(anomaly$resource_anomaly_type!='normal'),]
+
+repaired = align
+test = test[which(is.element(test$Case.ID, repaired$Case)),]
+
+x = aggregate(repaired$Activity , by= list(repaired$Case), FUN= function(x){paste(x, collapse = '-')})
+y = aggregate(test$Activity , by= list(test$Case.ID), FUN= function(x){paste(x, collapse = '-')})
+
+sum(as.character(x$Group.1)!=as.character(y$Group.1))
+sum(as.character(x$Group.1)!=as.character(anomaly$Group.1))
+
+see3= anomaly
+names(see3)[2] = 'label'
+
+accuracy =1- sum(as.character(x$x)!=as.character(y$x))/nrow(x)
+loc_skip = which(is.element(y$Group.1,see3[which(see3$label=='skip'),'Case'] ))
+accuracy_skip =1- sum( (as.character(x$x)!=as.character(y$x))[loc_skip] )/length(loc_skip)
+loc_insert = which(is.element(y$Group.1,see3[which(see3$label=='insert'),'Case'] ))
+accuracy_insert =1- sum( (as.character(x$x)!=as.character(y$x))[loc_insert] )/length(loc_insert)
+loc_moved = which(is.element(y$Group.1,see3[which(see3$label=='moved'),'Case'] ))
+accuracy_moved =1- sum( (as.character(x$x)!=as.character(y$x))[loc_moved] )/length(loc_moved)
+loc_rework = which(is.element(y$Group.1,see3[which(see3$label=='rework'),'Case'] ))
+accuracy_rework =1- sum( (as.character(x$x)!=as.character(y$x))[loc_rework] )/length(loc_rework)
+loc_replace = which(is.element(y$Group.1,see3[which(see3$label=='replace'),'Case'] ))
+accuracy_replace =1- sum( (as.character(x$x)!=as.character(y$x))[loc_replace] )/length(loc_replace)
+
+
+print(  paste("Reconstuction accuracy = ", ceiling(accuracy*10000)/10000, sep='') )
+print(  paste("Reconstuction accuracy.skip = ", ceiling(accuracy_skip*10000)/10000, sep='') )
+print(  paste("Reconstuction accuracy.insert = ", ceiling(accuracy_insert*10000)/10000, sep='') )
+print(  paste("Reconstuction accuracy.rework = ", ceiling(accuracy_rework*10000)/10000, sep='') )
+print(  paste("Reconstuction accuracy.replace = ", ceiling(accuracy_replace*10000)/10000, sep='') )
+print(  paste("Reconstuction accuracy.moved = ", ceiling(accuracy_moved*10000)/10000, sep='') )
+
+
+
+library(stringdist)
+
+anomaly= unique(dat[,c(1,4)])
+n.c = unique(anomaly[which(anomaly$resource_anomaly_type=='normal'), 'Case'])
+a.c = unique(anomaly[which(anomaly$resource_anomaly_type!='normal'), 'Case'])
+
+x.act = repaired$Activity
+y.act = test$Activity
+z.act = dat$Activity
+
+act.list = unique( c(x.act,y.act,z.act) )
+letter.list = c(letters, LETTERS, 1:9)
+
+if(length(act.list) > length(letter.list)){
+  print("Over size problem: act.length > letters ")
+}
+
+
+x.act = apply( data.frame(x.act), 1, FUN= function(x){ letter.list[which(act.list==x)]} )  
+y.act = apply( data.frame(y.act), 1, FUN= function(x){ letter.list[which(act.list==x)]} )  
+
+
+str.x = aggregate(x.act , by= list(repaired$Case), FUN= function(x){paste(x, collapse = '')})
+str.y = aggregate(y.act , by= list(test$Case.ID), FUN= function(x){paste(x, collapse = '')})
+
+print("About normal")
+
+print( mean((   (as.character(str.x$x)==as.character(str.y$x))[which(is.element(str.x$Group.1, n.c ))]    ) ))
+print( paste( "edit dist(after) = " ,mean(  (stringdist(str.x$x, str.y$x))[which(is.element(str.x$Group.1, n.c ))]  ) , collapse = '') ) # error by edit distant (Levenshtein dist)
+
+
+print("About anomaly")
+print( mean((   (as.character(str.x$x)==as.character(str.y$x))[which(is.element(str.x$Group.1, a.c ))]    ) ))
+print( paste( "edit dist(after) = " ,mean(  (stringdist(str.x$x, str.y$x))[which(is.element(str.x$Group.1, a.c ))]  ) , collapse = '') ) # error by edit distant (Levenshtein dist)
+}
+
+
+
+
+
+{
+  setwd("C:/Users/UNIST/Desktop/????/Conformance Checking/R_code/log_repairing/normaldata")
+  fn = list.files(getwd())
+  
+  for(i in 5:length(fn)){
+    normal= read.csv(fn[i], T)
+    
+    setwd("C:/Users/UNIST/Desktop/????/Conformance Checking/R_code/log_repairing/anomalydata_p50")
+    fa = list.files(getwd())
+    fa = fa[which(grepl(strsplit(fn[i], ".csv")[[1]],fa))]
+    print(fn[i])
+    for(j in 1:length(fa)){
+      anomaly= read.csv(fa[j], T)
+      moved = anomaly[which(anomaly$resource_anomaly_type =="moved" & anomaly$is_trace_anomalous.resource. ==1),]
+      case.l = unique(moved$Case)
+      res= as.numeric()
+      for(w in 1:length(case.l)){
+        check.case = case.l[w]
+        see.anomaly = moved[which(is.element(moved$Case, check.case)),]
+        if(i==5 | i==7){
+          see.normal = normal[which(is.element(normal$case_id, check.case)),]
+          
+        }else if(i==6 | i==11){
+          see.normal = normal[which(is.element(normal$case.concept.name, check.case)),]
+        }else{
+          see.normal = normal[which(is.element(normal$Case.ID, check.case)),]
+          
+        }
+        
+        event = see.anomaly[which(see.anomaly$Resource_Anomaly.Normal == 1),]
+        act = event$Activity
+        loc0 = event$order
+        
+        
+        if(i==5 | i==7){
+          loc1 = which(see.normal$activity == act)
+          
+        }else if(i==6 | i==11){
+          loc1 = which(see.normal$concept.name.x == act)
+        }else{
+          loc1 = which(see.normal$Activity == act)
+        }
+        
+        if(length(loc1)>1){
+          res[w] = max( abs(loc0-loc1))
+        }else{
+          res[w] = abs(loc0-loc1)
+        }
+        
+      }
+      print(max(res))
+    }
+    setwd("C:/Users/UNIST/Desktop/????/Conformance Checking/R_code/log_repairing/normaldata")
+  }
+  
+}
+
+
+

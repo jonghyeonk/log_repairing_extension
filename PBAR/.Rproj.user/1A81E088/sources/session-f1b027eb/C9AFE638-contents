@@ -1,0 +1,239 @@
+
+
+# # alpha 
+
+setwd("C:/Users/ADMIN/Desktop/볼차노/PBAR_extension/log_repairing_extension.v2/result_max_v2")
+fn = list.files()
+
+data_all = c('Small', 'Medium', 'Wide', 'Large', 'Huge' , 
+             'credit-card', 'mccloud','hospital_billing', 'Road_Traffic', 
+             'b12', 'b17')
+df_total= data.frame()
+for(data in data_all){
+
+data2 =  fn[which(unlist(lapply(fn, FUN= function(x){ grepl(data, x, fixed= T) }  )))]
+data3 = data2[4]
+
+data4= read.csv(data3, T)
+data4= data4[, c('Data', 'Rate', 'Alpha',  
+                 'p.normal', 'p.anomaly', 'ReconACC', 'ReconACC.single.',
+                 'ReconACC.multiple.')]
+
+names(data4)[4:ncol(data4)] = c('Normal (PBAR.M1)', 'Anomaly (PBAR.M1)',	'ReconACC (PBAR.M1)',	
+                                'Single (PBAR.M1)', 'Multiple (PBAR.M1)')
+
+df_total = rbind(df_total,data4 )
+}
+
+
+setwd("C:/Users/whd1g/OneDrive/바탕 화면/볼차노/PBAR_extension/log_repairing_extension.v2")
+write.csv(df_total, 'total.csv' , row.names = F)
+
+df_total2 = df_total
+df_total2$Data_name = apply(df_total2[, c(1:2) ], 1, FUN= function(x){paste(x[1],'_', x[2], sep = '' )})
+
+write.csv(df_total2, 'total_alpha.csv' , row.names = F)
+
+library(ggplot2)
+
+setwd("C:/Users/ADMIN/Desktop/볼차노/PBAR_extension/log_repairing_extension.v2")
+df_total2 = read.csv("total_alpha.csv", header =T, check.names=FALSE)
+df_total3 = df_total2[, c('Rate', 'Alpha', 'Anomaly (PBAR.M1)', 'Data_name', 'Data')]
+names(df_total3)[3] = 'ACC'
+
+df_total3[which(df_total3$Data == 'credit-card'), 'Data'] = 'Credit'
+df_total3[which(df_total3$Data == 'mccloud'), 'Data'] = 'Pub'
+df_total3[which(df_total3$Data == 'hospital_billing'), 'Data'] = 'Hospital Billing'
+df_total3[which(df_total3$Data == 'Road_Traffic'), 'Data'] = 'Road Traffic'
+df_total3[which(df_total3$Data == 'b12'), 'Data'] = 'BPIC 2012'
+df_total3[which(df_total3$Data == 'b17'), 'Data'] = 'BPIC 2017'
+
+df_total3 = df_total3[which(df_total3$Rate ==1.00),]
+gph1 = df_total3[which(is.element(df_total3$Data, c('Small', 'Medium',  'Wide', 'Large', 'Huge'))),]
+gph2 = df_total3[which(is.element(df_total3$Data, c('Credit', 'Pub'))),]
+gph3 = df_total3[which(is.element(df_total3$Data, c('Hospital Billing', 'Road Traffic', 'BPIC 2012', 'BPIC 2017'))),]
+gph4 = df_total3[which(is.element(df_total3$Data, c('Credit', 'Pub', 'Hospital Billing', 'Road Traffic', 'BPIC 2012', 'BPIC 2017'))),]
+gph5 = df_total3[which(is.element(df_total3$Data, c('Small', 'Medium',  'Wide', 'Large', 'Huge', 'Credit', 'Pub'))),]
+
+
+
+library(RColorBrewer)
+f <- function(pal) brewer.pal(brewer.pal.info[pal, "maxcolors"], pal)
+(cols <- f("Set1"))
+(cols2 <- f("Accent"))
+cols2[2] = 'black'
+cols2[3] = '#ff5733'
+cols2[4] = '#ffc300'
+scales::show_col(brewer.pal(6, name = "Purples"))
+
+library(ggnewscale)
+
+gph3$Data = factor(gph3$Data, levels = c("Hospital Billing", "Road Traffic", "BPIC 2012", "BPIC 2017") )
+gph5$Data = factor(gph5$Data, levels = c("Small", 'Medium', 'Wide', 'Large', 'Huge', 'Credit', 'Pub') )
+
+
+
+ggplot(gph1, aes(x= Alpha, y= ACC, color= Data)) + 
+  geom_point(size =3)+
+  geom_line(size=1) + 
+  ggtitle("ART-LOG-1") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(gph2, aes(x= Alpha, y= ACC, color= Data)) + 
+  geom_point(size =3)+
+  geom_line(size=1)   +
+  ggtitle("ART-LOG-2") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(gph3, aes(x= Alpha, y= ACC, color= Data)) +
+  geom_point(size =2, shape = 17)+
+  geom_line(size=1) + 
+  scale_color_manual(values = cols[1:4]) +
+  ggtitle("REAL-LOG") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(gph4, aes(x= Alpha, y= ACC, color= Data)) + 
+  geom_point(size =2)+
+  geom_line(size=1) + 
+  ggtitle("ART-LOG-2 & REAL-LOG") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(gph5, aes(x= Alpha, y= ACC, color= Data)) + 
+  geom_point(size =2, shape =17)+
+  geom_line(size=1) + 
+  scale_color_manual(values = cols2) +
+  ggtitle("ART-LOG-1 & ART-LOG-2") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+
+
+## rate
+
+setwd("C:/Users/whd1g/OneDrive/바탕 화면/볼차노/PBAR_extension/log_repairing_extension.v2/result_max_v2")
+fn = list.files()
+
+data_art1 = c('Small', 'Medium',  'Wide', 'Large', 'Huge' )
+
+data_art2 = c('credit-card', 'mccloud')
+
+data_art3 = c('hospital_billing', 'Road_Traffic', 
+              'b12', 'b17')
+
+
+df_art1= data.frame()
+df_art2= data.frame()
+df_art3= data.frame()
+
+for(data in data_art1){
+  
+  data2 =  fn[which(unlist(lapply(fn, FUN= function(x){ grepl(data, x, fixed= T) }  )))]
+  data3 = data2[c(1:3, 5)]
+  print(data3)
+  df = data.frame()
+  for(dat in data3){
+    data4= read.csv(dat, T)
+    data4= data4[, c('Data', 'Rate','p.anomaly')]
+    
+    df = rbind(df, data4)
+    
+  }
+  df= cbind(rep(c('PBAR', 'Aligner.TR', 'Aligner.ED', 'DeepAlign'), c(4,4,4,4))  , df)
+  df_art1 = rbind(df_art1,df )
+}
+
+for(data in data_art2){
+  
+  data2 =  fn[which(unlist(lapply(fn, FUN= function(x){ grepl(data, x, fixed= T) }  )))]
+  data3 = data2[c(1:3, 5)]
+  print(data3)
+  df = data.frame()
+  for(dat in data3){
+    data4= read.csv(dat, T)
+    data4= data4[, c('Data', 'Rate','p.anomaly')]
+    
+    df = rbind(df, data4)
+    
+  }
+  df= cbind(rep(c('PBAR', 'Aligner.TR', 'Aligner.ED', 'DeepAlign'), c(4,4,4,4))  , df)
+  df_art2 = rbind(df_art2,df )
+}
+
+for(data in data_art3){
+  
+  data2 =  fn[which(unlist(lapply(fn, FUN= function(x){ grepl(data, x, fixed= T) }  )))]
+  data3 = data2[c(1:3, 5)]
+  print(data3)
+  df = data.frame()
+  for(dat in data3){
+    data4= read.csv(dat, T)
+    data4= data4[, c('Data', 'Rate','p.anomaly')]
+    
+    df = rbind(df, data4)
+    
+  }
+  df= cbind(rep(c('PBAR', 'Aligner.TR', 'Aligner.ED', 'DeepAlign'), c(4,4,4,4))  , df)
+  df_art3 = rbind(df_art3,df )
+}
+
+
+
+names(df_art1)[1] = 'method'
+stat1 = aggregate(df_art1$p.anomaly, by = list(df_art1$method , df_art1$Rate), FUN= mean )
+names(stat1) = c('Method', '% of normal traces', 'ACC')
+stat1$Method <- factor(stat1$Method, levels = c("PBAR", "Aligner.TR", "Aligner.ED", "DeepAlign"))
+
+names(df_art2)[1] = 'method'
+stat2 = aggregate(df_art2$p.anomaly, by = list(df_art2$method , df_art2$Rate), FUN= mean )
+names(stat2) = c('Method', '% of normal traces', 'ACC')
+stat2$Method <- factor(stat2$Method, levels = c("PBAR", "Aligner.TR", "Aligner.ED", "DeepAlign"))
+
+names(df_art3)[1] = 'method'
+stat3 = aggregate(df_art3$p.anomaly, by = list(df_art3$method , df_art3$Rate), FUN= mean )
+names(stat3) = c('Method', '% of normal traces', 'ACC')
+stat3$Method <- factor(stat3$Method, levels = c("PBAR", "Aligner.TR", "Aligner.ED", "DeepAlign"))
+
+
+ggplot(stat1, aes(x= stat1[,2], y= ACC, color= Method)) + geom_point(size =3)+
+  geom_line(size=1) + xlab('% of normal traces')  + scale_x_continuous(breaks=c(0.1, 0.25, 0.5 , 0.75, 1.0)) + 
+  ggtitle("ART-LOG-1") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(stat2, aes(x= stat1[,2], y= ACC, color= Method)) + geom_point(size =3)+
+  geom_line(size=1) + xlab('% of normal traces') + scale_x_continuous(breaks=c(0.1, 0.25, 0.5 , 0.75, 1.0)) +
+  ggtitle("ART-LOG-2") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+ggplot(stat3, aes(x= stat1[,2], y= ACC, color= Method)) + geom_point(size =3)+
+  geom_line(size=1) + xlab('% of normal traces') + scale_x_continuous(breaks=c(0.1, 0.25, 0.5 , 0.75, 1.0))+
+  ggtitle("REAL-LOG") + theme(plot.title = element_text(size = 11, face = "bold"))
+
+setwd("C:/Users/whd1g/OneDrive/바탕 화면/볼차노/PBAR_extension/log_repairing_extension.v2")
+write.csv(df_total, 'total.csv' , row.names = F)
+
+
+df_total2 =df_total[which(df_total$Rate ==1.00),]
+
+table1_1 = df_total2[,c('Data', 'PatternACC (PBAR.M1)' , 'Normal (PBAR.M1)',
+                        'Normal (Align.TRD)', 'Normal (Align.EDIT)') ]
+table1_2 = df_total2[,c('Data', 'PatternACC (PBAR.M1)' , 'Anomaly (PBAR.M1)',
+                        'Anomaly (Align.TRD)', 'Anomaly (Align.EDIT)') ]
+table1_3 = df_total2[,c('Data', 'PatternACC (PBAR.M1)' , 'ReconACC (PBAR.M1)',
+                        'ReconACC (Align.TRD)', 'ReconACC (Align.EDIT)') ]
+
+df_total3 = df_total[,c('Data', 'Rate' , 'ReconACC (PBAR.M1)',
+                         'ReconACC (Align.TRD)', 'ReconACC (Align.EDIT)') ]
+
+
+gph1 = df_total3[,c('Data', 'Rate' , 'ReconACC (PBAR.M1)') ]
+names(gph1)[3] = 'ACC'
+
+gph2 = df_total3[,c('Data', 'Rate' , 'ReconACC (Align.TRD)') ]
+names(gph2)[3] = 'ACC'
+
+gph3 = df_total3[,c('Data', 'Rate' , 'ReconACC (Align.EDIT)') ]
+names(gph3)[3] = 'ACC'
+
+ggplot(gph1, aes(x= Rate, y= ACC, color= Data)) + 
+  geom_line(size=1)
+ggplot(gph2, aes(x= Rate, y= ACC, color= Data)) + 
+  geom_line(size=1)
+ggplot(gph3, aes(x= Rate, y= ACC, color= Data)) + 
+  geom_line(size=1)
+
+
+setwd("C:/Users/whd1g/OneDrive/바탕 화면/볼차노/PBAR_extension")
+see = read.csv("total_with_leverage_v3.csv", T)
+
